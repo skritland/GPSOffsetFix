@@ -1,42 +1,35 @@
-package pl.skritland.xposed.gpschinaoffsetfix;
+package pl.skritland.xposed.gpsoffsetfix;
 
 import android.app.PendingIntent;
-import android.location.GpsSatellite;
-import android.location.GpsStatus;
 import android.location.Location;
 import android.location.LocationListener;
 import android.os.Binder;
 import android.os.Bundle;
-import android.os.IInterface;
 import android.util.Log;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XC_MethodHook.MethodHookParam;
 
 /**
  * Created by skritland on 2015-03-15.
  * Idea based on XPrivacy
  */
-public class XHookLocation {
+public class XLocationManager implements XHookLocation {
     private MethodsToHook mMethod;
     private String mClassName;
-    public static final String LOGTAG = GPSChinaOffsetFix.LOGTAG + "/XHL";
-    private static final String cLocationManagerClassName = "android.location.LocationManager";
-    private static final String cLocationClientClassName = "com.google.android.gms.location.LocationClient";
-    private static final String cGoogleMapClassName = "com.google.android.gms.maps.GoogleMap";
+    public static final String LOGTAG = XLocationManager.class.getName();
+    private static final String cClassName = "android.location.LocationManager";
+    //    private static final String cLocationClientClassName = "com.google.android.gms.location.LocationClient";
+//    private static final String cGoogleMapClassName = "com.google.android.gms.maps.GoogleMap";
     private static final Map<Object, Object> mMapProxy = new WeakHashMap<Object, Object>();
 
     private static final LocationTransform mLocationTransform = new GPSCoordEvilTransform();
 
-    private XHookLocation(MethodsToHook method, String className) {
+    private XLocationManager(MethodsToHook method, String className) {
         mMethod = method;
         mClassName = className;
     }
@@ -66,7 +59,6 @@ public class XHookLocation {
     // frameworks/base/location/java/android/location/LocationManager.java
     // http://developer.android.com/reference/android/location/LocationManager.html
 
-
     // @formatter:on
 
     private enum MethodsToHook {
@@ -76,34 +68,18 @@ public class XHookLocation {
     }
 
 
-    public static List<XHookLocation> getInstances(String module, String className) {
+    public static List<XHookLocation> getInstances(String className) {
         List<XHookLocation> listHook = new ArrayList<XHookLocation>();
-        if (module.equals("LocationManager"))
-        {
-            if (className == null)
-                className = cLocationManagerClassName;
-            listHook.add(new XHookLocation(MethodsToHook.getLastKnownLocation, className));
-            listHook.add(new XHookLocation(MethodsToHook.removeUpdates, className));
-            listHook.add(new XHookLocation(MethodsToHook.requestLocationUpdates, className));
-            listHook.add(new XHookLocation(MethodsToHook.requestSingleUpdate, className));
-        }
-        else if (module.equals("LocationClient"))
-        {
-
-        }
-        else if (module.equals("GoogleMapsApiV2"))
-        {
-
-        }
-        else if (module.equals("FusedLocationApi"))
-        {
-
-        }
-
+        if (className == null)
+            className = cClassName;
+        listHook.add(new XLocationManager(MethodsToHook.getLastKnownLocation, className));
+        listHook.add(new XLocationManager(MethodsToHook.removeUpdates, className));
+        listHook.add(new XLocationManager(MethodsToHook.requestLocationUpdates, className));
+        listHook.add(new XLocationManager(MethodsToHook.requestSingleUpdate, className));
         return listHook;
     }
 
-    protected void before(MethodHookParam param) throws Throwable {
+    public void before(MethodHookParam param) throws Throwable {
         switch (mMethod) {
             case removeUpdates:
                 unproxyLocationListener(param, 0);
@@ -123,7 +99,7 @@ public class XHookLocation {
         }
     }
 
-    protected void after(MethodHookParam param) throws Throwable {
+    public void after(MethodHookParam param) throws Throwable {
         switch (mMethod) {
             case getLastKnownLocation:
                 if (param.args.length > 0 && param.getResult() instanceof Location) {
@@ -138,38 +114,34 @@ public class XHookLocation {
     }
 
     private void proxyLocationListener(MethodHookParam param, int arg) throws Throwable {
-        Log.i(LOGTAG, "proxyLocationListener: Inside func");
         if (param.args.length > arg)
             if (param.args[arg] instanceof PendingIntent)
-                Log.i(LOGTAG, "proxyLocationListener: PendingIntent not supported");
-
+                Log.w(LOGTAG, "proxyLocationListener: PendingIntent not supported"); // TODO getting location by using pending intent is not supported yet
             else if (param.args[arg] != null) {
-
-                    Object key = param.args[arg];
-                    synchronized (mMapProxy) {
-                        // Reuse existing proxy
-                        if (mMapProxy.containsKey(key)) {
-                            Log.i(LOGTAG, "Reuse existing proxy uid=" + Binder.getCallingUid());
-                            param.args[arg] = mMapProxy.get(key);
-                            return;
-                        }
-
-                        // Already proxied
-                        if (mMapProxy.containsValue(key)) {
-                            Log.i(LOGTAG, "Already proxied uid=" + Binder.getCallingUid());
-                            return;
-                        }
+                Object key = param.args[arg]; // get LocationListener object
+                synchronized (mMapProxy) {
+                    // reuse existing proxy
+                    if (mMapProxy.containsKey(key)) {
+                        Log.i(LOGTAG, "Reuse existing proxy uid=" + Binder.getCallingUid());
+                        param.args[arg] = mMapProxy.get(key);
+                        return;
                     }
-
-                    // Create proxy
-                    Log.i(LOGTAG, "Creating proxy uid=" + Binder.getCallingUid());
-                    Object proxy = new ProxyLocationListener(Binder.getCallingUid(), (LocationListener) param.args[arg]);
-
-                    // Use proxy
-                    synchronized (mMapProxy) {
-                        mMapProxy.put(key, proxy);
+                    // already proxied
+                    if (mMapProxy.containsValue(key)) {
+                        Log.i(LOGTAG, "Already proxied uid=" + Binder.getCallingUid());
+                        return;
                     }
-                    param.args[arg] = proxy;
+                }
+
+                // create proxy
+                Log.i(LOGTAG, "Creating proxy uid=" + Binder.getCallingUid());
+                Object proxy = new ProxyLocationListener(Binder.getCallingUid(), (LocationListener) param.args[arg]);
+
+                // use proxy
+                synchronized (mMapProxy) {
+                    mMapProxy.put(key, proxy);
+                }
+                param.args[arg] = proxy; // set proxy in place of original LocationListener
 
             }
     }
@@ -177,16 +149,15 @@ public class XHookLocation {
     private void unproxyLocationListener(MethodHookParam param, int arg) {
         if (param.args.length > arg)
             if (param.args[arg] instanceof PendingIntent)
-                Log.i(LOGTAG, "unproxyLocationListener: PendingIntent not supported");
-
+                Log.w(LOGTAG, "unproxyLocationListener: PendingIntent not supported"); // TODO getting location by using pending intent is not supported yet
             else if (param.args[arg] != null) {
-                    Object key = param.args[arg];
-                    synchronized (mMapProxy) {
-                        if (mMapProxy.containsKey(key)) {
-                            Log.i(LOGTAG, "Removing proxy uid=" + Binder.getCallingUid());
-                            param.args[arg] = mMapProxy.get(key);
-                        }
+                Object key = param.args[arg];
+                synchronized (mMapProxy) {
+                    if (mMapProxy.containsKey(key)) {
+                        Log.i(LOGTAG, "Removing proxy uid=" + Binder.getCallingUid());
+                        param.args[arg] = mMapProxy.get(key);
                     }
+                }
             }
     }
 
@@ -202,8 +173,6 @@ public class XHookLocation {
         @Override
         public void onLocationChanged(Location location) {
             Location transformedLoc = mLocationTransform.transform(location);
-            transformedLoc.setAltitude(99.0);
-            Log.i(LOGTAG, "Location changed uid=" + Binder.getCallingUid() + " alt: " + transformedLoc.getAltitude());
             mListener.onLocationChanged(transformedLoc);
         }
 
