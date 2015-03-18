@@ -1,4 +1,4 @@
-package pl.skritland.xposed.gpschinaoffsetfix;
+package pl.skritland.xposed.gpsoffsetfix;
 
 import java.lang.Math;
 
@@ -24,8 +24,15 @@ public class GPSCoordEvilTransform implements LocationTransform {
 
     //
     // World Geodetic System ==> Mars Geodetic System
+    /**
+     * Returns transformed location.
+     * @param loc Original location
+     * @return Transformed location
+     */
     @Override
     public Location transform(Location loc) {
+        if (loc == null)
+            return null;
         double wgLat, wgLon;
         double mgLat, mgLon;
         Location locr = new Location(loc);
@@ -36,7 +43,7 @@ public class GPSCoordEvilTransform implements LocationTransform {
         if (outOfChina(wgLat, wgLon)) {
             locr.setLatitude(wgLat);
             locr.setLongitude(wgLon);
-            return loc;
+            return locr;
         }
         double dLat = transformLat(wgLon - 105.0, wgLat - 35.0);
         double dLon = transformLon(wgLon - 105.0, wgLat - 35.0);

@@ -1,4 +1,4 @@
-package pl.skritland.xposed.gpschinaoffsetfix;
+package pl.skritland.xposed.gpsoffsetfix;
 
 import android.app.Application;
 import android.test.ApplicationTestCase;
