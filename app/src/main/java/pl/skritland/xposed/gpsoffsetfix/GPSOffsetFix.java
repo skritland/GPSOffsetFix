@@ -17,9 +17,8 @@ import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 
-import static de.robv.android.xposed.XposedBridge.hookAllMethods;
 import static de.robv.android.xposed.XposedHelpers.findClass;
-import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
+
 
 public class GPSOffsetFix implements IXposedHookLoadPackage {
 
@@ -45,6 +44,7 @@ public class GPSOffsetFix implements IXposedHookLoadPackage {
 //            hookAll(XHookLocation.getInstances("LocationClient", null), loadPackageParam.classLoader);
 //        } catch (Throwable ignored) {
 //        }
+
         try {
             hookAll(XLocationManager.getInstances(null), loadPackageParam.classLoader);
         } catch (Throwable ignored) {

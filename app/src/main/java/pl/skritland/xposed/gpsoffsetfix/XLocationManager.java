@@ -28,6 +28,7 @@ public class XLocationManager implements XHookLocation {
     private static final Map<Object, Object> mMapProxy = new WeakHashMap<Object, Object>();
 
     private static final LocationTransform mLocationTransform = new GPSCoordEvilTransform();
+    //private static final LocationTransform mLocationTransform = new TestLocationTransform();
 
     private XLocationManager(MethodsToHook method, String className) {
         mMethod = method;
